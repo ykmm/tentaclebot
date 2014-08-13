@@ -1,0 +1,5 @@
+username: username@server.ext
+password: password
+allowed_users:
+    - one@domain.ext
+    - two@domain.ext
