@@ -1,5 +1,7 @@
-username: username@server.ext
+jid: username@server.ext
 password: password
 allowed_users:
     - one@domain.ext
     - two@domain.ext
+media_dir: /path/to/media/download/directory/
+torrent_watch: /path/to/torrent/watch/directory/

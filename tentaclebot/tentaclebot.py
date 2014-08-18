@@ -32,14 +32,17 @@ import multiprocessing
 
 import tentacles
 
+from thing import Thing
+
 class TentacleBot(sleekxmpp.ClientXMPP):
     """
     A simple SleekXMPP bot that will echo messages it
     receives, along with a short thank you message.
     """
 
-    def __init__(self, jid, password, allowed_users):
-        sleekxmpp.ClientXMPP.__init__(self, jid, password)
+    def __init__(self, config):
+        self.config = config
+        sleekxmpp.ClientXMPP.__init__(self, config.jid, config.password)
 
         # The session_start event will be triggered when
         # the bot establishes its connection with the server
@@ -52,21 +55,25 @@ class TentacleBot(sleekxmpp.ClientXMPP):
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
-        self.allowed_users = allowed_users
 
-        #IN and OUT queues used to pass information to the single tentacles
-        self.in_queue = multiprocessing.Queue()
+        #OUT queue used to pass information from one tentacle to the main process
         self.out_queue = multiprocessing.Queue()
 
-        #Create a pool of workers
-        cur_tentacles = [tentacles.youtubedl.Worker(self.in_queue, self.out_queue)]
-        for w in cur_tentacles:
-            w.start()
+        #List of current tentacles (will be populated in start)
+        self.cur_tentacles = list()
 
         #Schedule checking every ten seconds out_queue to see if some tentacle has brought back stuff
-        self.schedule('check_out_queue', 10, self._task_check_out_queue, repeat=True)
-        self.scheduler.remove
         self.num_cur_downloads = 0
+
+    def _start_sched_out_queue(self):
+        #Start periodic check only if it is not already started
+        if self.num_cur_downloads == 0:
+            logging.debug('Start scheduled check of self.out_queue every 5 seconds')
+            self.schedule('check_out_queue', 5, self._task_check_out_queue, repeat=True)
+
+    def _stop_sched_out_queue(self):
+        logging.debug("Stopping scheduled check of self.out_queue")
+        self.scheduler.remove('check_out_queue')
 
     def _task_check_out_queue(self):
         if self.num_cur_downloads > 0:
@@ -78,6 +85,8 @@ class TentacleBot(sleekxmpp.ClientXMPP):
             else:
                 self.num_cur_downloads -= 1
                 self.send_message(who, message)
+        if self.num_cur_downloads == 0:
+            self._stop_sched_out_queue()
 
     def start(self, event):
         """
@@ -95,6 +104,16 @@ class TentacleBot(sleekxmpp.ClientXMPP):
         self.send_presence()
         self.get_roster()
 
+        #for each worker create an in_queue used to send download tasks to that
+        #specific worker (or pool of)
+        for x in tentacles.ALL:
+            logging.info('Preparing %s' % x.WClassName)
+            q = multiprocessing.Queue()
+            worker = getattr(x, x.WClassName)
+            t = worker(q, self.out_queue, config.media_dir)
+            t.start()
+            self.cur_tentacles.append((t, q))
+
     def message(self, msg):
         """
         Process incoming message stanzas. Be aware that this also
@@ -108,47 +127,44 @@ class TentacleBot(sleekxmpp.ClientXMPP):
                    how it may be used.
         """
 
-        if not msg['from'].bare in self.allowed_users:
+        jid = msg['from'].bare
+
+        if not jid in self.config.allowed_users:
             return
 
-        who = msg['from'].bare
         if msg['type'] in ('chat', 'normal'):
             #Strip whitespace, split on space and keep only the first portion
-            body = msg['body'].strip()
-            body = body.split(" ")[0]
-            #prepend it with a 'http://' if it is missing
-            if not (body.startswith('http://') or body.startswith('https://')):
-                body = 'http://'+body
+            message = msg['body'].strip().split(" ")[0]
 
-            #Check which worker can handle the link
+            thing = Thing(message)
+            #Check which worker can handle the link, the first that can wins
+            #and the loop stops
+            tentacle_found = False
+            for t, q in self.cur_tentacles:
+                if t.supports(thing):
+                    logging.debug("%s supports %s" % (t.__class__, thing.url.href()))
+                    self._start_sched_out_queue()
+                    msg.reply(random.choice(CONFIRM)).send()
+                    q.put((jid, thing))
+                    self.num_cur_downloads += 1
+                    tentacle_found = True
+                    break
 
-            #If it is a video url, pass it directly to youtube-dl
-            if tentacles.youtubedl.supported(body):
-                msg.reply(random.choice(CONFIRM)).send()
-                self.in_queue.put((who, body))
-                self.num_cur_downloads += 1
-            #otherwise, dereference the url and have it analyzed and processed by the relative worker
-            else:
-                from docextractor.docextractor import DocExtractor, pycurl
-                DE = DocExtractor()
-                try:
-                    http_code, http_data = DE.get_url(body)
-                except pycurl.error:
-                    msg.reply(random.choice(UNRECOGNIZED)).send()
-                else:
-                    print http_code, http_data
+            if not tentacle_found:
+                logging.debug("No valid tentacles found for processing %s" % message)
                 msg.reply(random.choice(UNRECOGNIZED)).send()
 
-            #THIS commented code, and the following two methods are only kept for
-            #reference purposes, on how to launch a subprocess if necessary
+                #dopo il break appare il seguente errore
+                """Traceback (most recent call last):
+                     File "/usr/lib/python2.7/multiprocessing/queues.py", line 266, in _feed
+                       send(obj)
+                   TypeError: expected string or Unicode object, NoneType found
+                   """
 
-            #yid = self.youtube_video_id(body)
-            #if yid is not None:
-            #
-            #    self.youtube_dl_subprocess(yid)
-            #else:
-            #
-            #    #msg.reply("Thanks for sending\n%(body)s" % msg).send()
+                #vedi qui http://stackoverflow.com/questions/10607553/python-multiprocessing-queue-what-to-do-when-the-receiving-process-quits
+
+    #THE following two methods are only kept for
+    #reference purposes, on how to launch a subprocess if necessary
 
     def youtube_video_id(self, link):
         """Given the youtube video url returns the id or None if there is no match"""
@@ -204,39 +220,18 @@ if __name__ == '__main__':
     logging.basicConfig(level=opts.loglevel,
                         format='%(levelname)-8s %(message)s')
 
-    try:
-        f = open('tconfig.yaml')
-    except IOError:
-        main_conf = False
-    else:
-        main_conf = True
-        conf_data = yaml.safe_load(f)
-        f.close()
-        opts.jid = conf_data['username']
-        opts.password = conf_data['password']
+    import tconfig
 
     try:
-        f = open('tconfig-local.yaml')
-    except IOError:
-        local_conf = False
-    else:
-        local_conf = True
-        conf_data = yaml.safe_load(f)
-        f.close()
-        opts.jid = conf_data['username']
-        opts.password = conf_data['password']
-
-    if not main_conf and not local_conf:
-        if opts.jid is None:
-            opts.jid = raw_input("Username: ")
-        if opts.password is None:
-            opts.password = getpass.getpass("Password: ")
-
+        config = tconfig.TConfig()
+    except tconfig.ConfigurationException, e:
+        logging.error(e)
+        sys.exit(2)
 
     # Setup the TentacleBot and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
     # not matter.
-    xmpp = TentacleBot(opts.jid, opts.password, conf_data['allowed_users'])
+    xmpp = TentacleBot(config)
     xmpp.register_plugin('xep_0030') # Service Discovery
     xmpp.register_plugin('xep_0004') # Data Forms
     xmpp.register_plugin('xep_0060') # PubSub
