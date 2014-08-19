@@ -7,15 +7,15 @@ import multiprocessing
 import filetype
 import os
 
-logger = multiprocessing.log_to_stderr()
-logger.setLevel(multiprocessing.SUBDEBUG)
+import logging
+logger = logging.getLogger(__name__)
 
 class TorrentTentacle(multiprocessing.Process):
-    def __init__(self, in_queue, out_queue, save_dir = './'):
+    def __init__(self, in_queue, out_queue, conf_obj):
         multiprocessing.Process.__init__(self)
         self.in_queue = in_queue
         self.out_queue = out_queue
-        self.save_dir = save_dir
+        self.save_dir = conf_obj.torrent_watch
 
     def supports(self, thing):
         #Verifica se è un link magnet e facci qualcosa
@@ -28,6 +28,7 @@ class TorrentTentacle(multiprocessing.Process):
         elif thing.url.scheme == 'magnet':
             return True
         else:
+            logger.debug("%s does not suppport '%s' scheme" % (WClassName, thing.url.scheme))
             return False
 
     def run(self):
@@ -41,15 +42,15 @@ class TorrentTentacle(multiprocessing.Process):
             #SAVE FILE IN MEDIA DIRECTORY
             if thing.url.scheme in ('http','https'):
                 #ANSWER BACK TO USER
-                logger.info("%s answer fokke" % proc_name)
-    
+
                 message = "ALL OK MASTER %s %s" % (thing.url.href(), thing.temp_file)
-    
+
                 logger.info(thing.http_headers)
                 filename = os.path.basename(thing.url.path)
                 if len(filename)==0:
                     filename = os.path.basename(thing.temp_file)
                 os.rename(thing.temp_file, self.save_dir+filename)
+                logger.debug("saving file %s" % (self.save_dir+filename))
                 self.out_queue.put((jid, message))
             if thing.url.scheme in ('magnet'):
                 message = "I DON'T KNOW HOW TO DEAL WITH MAGNET LINKS YET, TEACH ME MASTER, PLEASE!"

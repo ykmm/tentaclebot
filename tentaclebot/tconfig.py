@@ -36,9 +36,11 @@ class TConfig(object):
             f.close()
             self.jid = conf_data['jid']
             self.password = conf_data['password']
+            self.address_me_as = conf_data['address_me_as']
             self.allowed_users = conf_data['allowed_users']
             self.media_dir = conf_data['media_dir']
             self.torrent_watch = conf_data['torrent_watch']
+            self.video_write_metadata = conf_data['video']['write_metadata']
 
         try:
             f = open(conf_file_dir + 'tconfig-local.yaml')
@@ -53,6 +55,7 @@ class TConfig(object):
             self.allowed_users = conf_data['allowed_users']
             self.media_dir = conf_data['media_dir']
             self.torrent_watch = conf_data['torrent_watch']
+            self.video_write_metadata = conf_data['video']['write_metadata']
 
         if not self.main_conf and not self.local_conf:
             raise ConfigurationException, "tconfig.yaml or tconfig-local.yaml not found"

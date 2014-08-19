@@ -1,7 +1,10 @@
 jid: username@server.ext
 password: password
+address_me_as: MASTER
 allowed_users:
     - one@domain.ext
     - two@domain.ext
 media_dir: /path/to/media/download/directory/
 torrent_watch: /path/to/torrent/watch/directory/
+video:
+    write_metadata: True #Needs ffmpeg or avconv

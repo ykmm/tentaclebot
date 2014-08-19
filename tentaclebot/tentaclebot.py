@@ -6,7 +6,7 @@
 """
 
 import sys
-import logging
+import logging, logging.config
 import getpass
 from optparse import OptionParser
 import sleekxmpp
@@ -110,7 +110,7 @@ class TentacleBot(sleekxmpp.ClientXMPP):
             logging.info('Preparing %s' % x.WClassName)
             q = multiprocessing.Queue()
             worker = getattr(x, x.WClassName)
-            t = worker(q, self.out_queue, config.media_dir)
+            t = worker(q, self.out_queue, self.config)
             t.start()
             self.cur_tentacles.append((t, q))
 
@@ -216,9 +216,12 @@ if __name__ == '__main__':
     opts, args = optp.parse_args()
 
     # Setup logging.
-    opts.loglevel = logging.DEBUG
-    logging.basicConfig(level=opts.loglevel,
-                        format='%(levelname)-8s %(message)s')
+    logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
+    logging.getLogger().setLevel(level=logging.DEBUG)
+
+    #opts.loglevel = logging.DEBUG
+    #logging.basicConfig(level=opts.loglevel,
+    #                    format='%(levelname)-8s %(message)s')
 
     import tconfig
 
