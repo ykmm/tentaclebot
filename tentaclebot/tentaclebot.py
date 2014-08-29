@@ -127,9 +127,11 @@ class TentacleBot(sleekxmpp.ClientXMPP):
                    how it may be used.
         """
 
-        jid = msg['from'].bare
+        jid_full = msg['from']
+        jid_bare = msg['from'].bare
 
-        if not jid in self.config.allowed_users:
+        #check only on bare username
+        if not jid_bare in self.config.allowed_users:
             return
 
         if msg['type'] in ('chat', 'normal'):
@@ -145,7 +147,7 @@ class TentacleBot(sleekxmpp.ClientXMPP):
                     logging.debug("%s supports %s" % (t.__class__, thing.url.href()))
                     self._start_sched_out_queue()
                     msg.reply(random.choice(CONFIRM)).send()
-                    q.put((jid, thing))
+                    q.put((jid_full, thing))
                     self.num_cur_downloads += 1
                     tentacle_found = True
                     break
