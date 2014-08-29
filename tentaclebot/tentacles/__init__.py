@@ -1,5 +1,6 @@
 import youtubedl
 import torrent
 import generic
+import images
 
-ALL = [youtubedl, torrent, generic]
+ALL = [youtubedl, torrent, images, generic]
