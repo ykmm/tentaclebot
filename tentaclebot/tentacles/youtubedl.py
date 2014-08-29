@@ -36,9 +36,7 @@ class YoutubeTentacle(multiprocessing.Process):
             if ie._WORKING and ie.suitable(thing.url.href()):
                 if ie.IE_NAME == 'generic':
                     continue
-                logger.info('SUPORTO? SI')
                 return True
-        logger.info('SUPORTO? NO')
         return False
 
     def run(self):
