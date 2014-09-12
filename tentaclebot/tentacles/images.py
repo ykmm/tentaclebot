@@ -14,7 +14,7 @@ class ImageTentacle(multiprocessing.Process):
         multiprocessing.Process.__init__(self)
         self.in_queue = in_queue
         self.out_queue = out_queue
-        self.save_dir = conf_obj.media_dir
+        self.conf_obj = conf_obj
 
     def supports(self, thing):
         #Verifica se è un link magnet e facci qualcosa
@@ -37,7 +37,7 @@ class ImageTentacle(multiprocessing.Process):
 
             if thing.url.scheme in ('http','https'):
                 logger.info(thing.http_headers)
-                if thing.save_file(self.save_dir):
+                if thing.save_file(self.conf_obj.get_dir(thing.mimetype.mimetype)):
                     message = "ALL OK MASTER %s downloaded as %s" % (thing.url.href(), thing.filename)
                 else:
                     message = "I WAS NOT ABLE TO DO STUFF MASTER"

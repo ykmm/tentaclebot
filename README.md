@@ -1,17 +1,17 @@
 Tentaclebot
 ===========
 
-#### This is pre-ante-un-alpha software, for the love of your family and pets, be careful! ####
+#### This is very alpha software, for the love of your family and pets, be careful! ####
 
 A multipurpose jabber bot tasked to grab stuff in the internets and download them locally. Because offline is better!
 
 Features
 --------
 
-* Downloads every video supported by youtube-dl
-* Downloads torrent files 
-* Recognizes magnet links, but does not know how to use them yet
+* Downloads everything and stores it using the mimetype rules from the configuration file
+* Custom support for video streaming sites (all the websites supported by youtube-dl)
 * Answers in the most servile and submissive way
+* Supports distinct conversations with only allowed_users
 
 Installation
 ------------

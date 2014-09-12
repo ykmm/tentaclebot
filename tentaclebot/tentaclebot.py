@@ -42,6 +42,10 @@ class TentacleBot(sleekxmpp.ClientXMPP):
 
     def __init__(self, config):
         self.config = config
+        self._convlocked = False
+        self._last_jid = None
+        #XEP-0296 To keep track of conversations with all allowed_users
+        self.conversations = dict([(x, x) for x in self.config.allowed_users])
         sleekxmpp.ClientXMPP.__init__(self, config.jid, config.password)
 
         # The session_start event will be triggered when
@@ -101,7 +105,7 @@ class TentacleBot(sleekxmpp.ClientXMPP):
                      event does not provide any additional
                      data.
         """
-        self.send_presence()
+        self.send_presence(ppriority=1000)
         self.get_roster()
 
         #for each worker create an in_queue used to send download tasks to that
@@ -113,6 +117,33 @@ class TentacleBot(sleekxmpp.ClientXMPP):
             t = worker(q, self.out_queue, self.config)
             t.start()
             self.cur_tentacles.append((t, q))
+        
+        self.send_message(self.config.allowed_users[0], "I AM LISTENING MASTER")
+
+    def _lock_conversation(self):
+        self._convlocked = True
+
+    def _unlock_conversation(self):
+        self._convlocked = False
+
+    def get_jid(self, msg):
+        """Given a message stanza returns the jid based on the conversation
+        state"""
+        bare = msg['from'].bare
+        full = msg['from']
+        
+        #use new jid if different
+        if full != bare and self.conversations[bare] != full:
+            self._lock_conversation()
+            self.conversations[bare] = full
+            
+        if self._convlocked:
+            return full
+        else:
+            return bare
+        
+        
+        return self.conversations[bare]
 
     def message(self, msg):
         """
@@ -146,8 +177,10 @@ class TentacleBot(sleekxmpp.ClientXMPP):
                 if t.supports(thing):
                     logging.debug("%s supports %s" % (t.__class__, thing.url.href()))
                     self._start_sched_out_queue()
+                    #We get the jid before replying, to keep the original jid
+                    reply_to = self.get_jid(msg)
                     msg.reply(random.choice(CONFIRM)).send()
-                    q.put((jid_full, thing))
+                    q.put((reply_to, thing))
                     self.num_cur_downloads += 1
                     tentacle_found = True
                     break
@@ -155,15 +188,6 @@ class TentacleBot(sleekxmpp.ClientXMPP):
             if not tentacle_found:
                 logging.debug("No valid tentacles found for processing %s" % message)
                 msg.reply(random.choice(UNRECOGNIZED)).send()
-
-                #dopo il break appare il seguente errore
-                """Traceback (most recent call last):
-                     File "/usr/lib/python2.7/multiprocessing/queues.py", line 266, in _feed
-                       send(obj)
-                   TypeError: expected string or Unicode object, NoneType found
-                   """
-
-                #vedi qui http://stackoverflow.com/questions/10607553/python-multiprocessing-queue-what-to-do-when-the-receiving-process-quits
 
     #THE following two methods are only kept for
     #reference purposes, on how to launch a subprocess if necessary

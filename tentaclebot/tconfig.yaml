@@ -1,10 +1,50 @@
+#
+# TentacleBot configuration file
+#
+
+#
+# Authentication
+#
 jid: username@server.ext
 password: password
-address_me_as: MASTER
+
+#
+# Security 
+#
+# a list of users who can give commands to this bot
+#
 allowed_users:
     - one@domain.ext
     - two@domain.ext
-media_dir: /path/to/media/download/directory/
-torrent_watch: /path/to/torrent/watch/directory/
+
+#
+# Storage dir and rules
+#
+storage:
+    basedir: '/path/to/main/download/dir/'
+    mimerules:
+        'image': 'images/'
+        'image/jpeg': 'pictures/my_jpeg_and_jpg/'
+        'video': 'video/'
+        'audio': 'music/'
+        
+        'text': 'docs/'
+        'application/pdf': 'docs/'
+        'application/postscript': 'docs/'
+        'application/zip': 'archives/'
+        'application/gzip': 'archives/'
+        
+        'application/rss+xml': 'feeds/'
+        'application/x-bittorrent': 'torrent_watch_dir/'
+
+#
+# video storage configuration
+#
 video:
+    #Tries to get metadata for downloaded video and store it
     write_metadata: True #Needs ffmpeg or avconv
+
+#
+# Fun stuff hohoho
+#
+address_me_as: MASTER

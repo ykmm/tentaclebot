@@ -17,7 +17,8 @@ class YoutubeTentacle(multiprocessing.Process):
         self.in_queue = in_queue
         self.out_queue = out_queue
 
-        self.ydl = youtube_dl.YoutubeDL({'outtmpl': conf_obj.media_dir + u'%(title)s-%(id)s.%(ext)s'})
+        filename = conf_obj.get_dir('video') + u'%(title)s-%(id)s.%(ext)s'
+        self.ydl = youtube_dl.YoutubeDL({'outtmpl': filename})
         if conf_obj.video_write_metadata:
             #Make youtubedl write metadata to the video file it downloads
             self.ydl.add_post_processor(youtube_dl.postprocessor.FFmpegMetadataPP())
@@ -56,6 +57,7 @@ class YoutubeTentacle(multiprocessing.Process):
                 else:
                     # Just a video
                     video = result
+
                 title = video['title']
                 logger.debug("'%s' downloaded" % title)
                 message = "'%s' HAS BEEN DOWNLOADED MASTER" % title

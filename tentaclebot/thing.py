@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 import logging
 logger = logging.getLogger(__name__)
-import os
+import os, errno
+import shutil
 import tempfile
 from docextractor.docextractor import DocExtractor
 from httprep.url import Url
@@ -32,7 +33,7 @@ class Thing(object):
     _http_code = None
     _http_data = None
     _http_headers = None
-    _temp_file_name = None
+    filename = None
 
     def __init__(self, url):
         self.url = Url(url)
@@ -53,12 +54,18 @@ class Thing(object):
                 raise
 
     def save_file(self, path):
-        """Moves the temporary in the folder specified by `path`"""
+        """Moves the temporary file in the folder specified by `path`"""
         try:
             filename = os.path.basename(self.url.path)
             if len(filename)==0:
-                filename = os.path.basename(thing.temp_file)
-            os.rename(self.temp_file, path+filename)
+                filename = os.path.basename(self.filename)
+                try:
+                    os.makedirs(path)
+                except OSError, e:
+                    if not e == errno.EEXIST:
+                        raise
+            #Move file in position
+            shutil.move(self.temp_file, path+filename)
         except:
             raise
         else:
