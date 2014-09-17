@@ -31,6 +31,13 @@ class GenericTentacle(multiprocessing.Process):
             jid, thing = next_task
 
             #SAVE FILE IN MEDIA DIRECTORY
+
+            if thing.save_file(self.conf_obj.get_dir(thing.mimetype.mimetype)):
+                message = "ALL OK MASTER %s downloaded as %s" % (thing.url.href(), thing.filename)
+            else:
+                message = "I WAS NOT ABLE TO DO STUFF MASTER"
+            self.out_queue.put((jid, message))
+            
             #print "FILE IS here", thing
             #ANSWER BACK TO USER
             message = "ALL OK MASTER"
